@@ -1,0 +1,2127 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1C3557">
+<title>EHS 현장점검</title>
+
+<!-- 로컬 전용 모드 (IndexedDB) -->
+
+<style>
+/* ─── Design Tokens ─── */
+:root {
+  --blue-deep:    #1C3557;
+  --blue-mid:     #2563EB;
+  --blue-light:   #EFF6FF;
+  --red:          #EF4444;
+  --amber:        #F59E0B;
+  --green:        #10B981;
+  --gray-50:      #F9FAFB;
+  --gray-100:     #F3F4F6;
+  --gray-200:     #E5E7EB;
+  --gray-400:     #9CA3AF;
+  --gray-600:     #4B5563;
+  --gray-900:     #111827;
+  --radius-card:  18px;
+  --radius-btn:   14px;
+  --shadow-card:  0 2px 12px rgba(0,0,0,.08);
+  --shadow-fab:   0 6px 24px rgba(37,99,235,.45);
+  --font:         -apple-system, 'SF Pro Display', 'Pretendard', sans-serif;
+  --safe-top:     env(safe-area-inset-top, 0px);
+  --safe-bottom:  env(safe-area-inset-bottom, 20px);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: var(--font);
+  background: var(--gray-100);
+  color: var(--gray-900);
+  min-height: 100dvh;
+  overscroll-behavior: none;
+}
+
+/* ─── Status Bar Spacer ─── */
+.status-bar {
+  height: calc(var(--safe-top) + 12px);
+  background: var(--blue-deep);
+}
+
+/* ─── Top Nav ─── */
+.nav {
+  background: var(--blue-deep);
+  padding: 0 20px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.nav-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -.3px;
+}
+.nav-icon {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.12);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  border: none;
+  color: #fff;
+  font-size: 18px;
+  transition: background .15s;
+}
+.nav-icon:active { background: rgba(255,255,255,.22); }
+
+/* ─── Scroll Container ─── */
+.scroll {
+  overflow-y: auto;
+  padding: 12px 16px calc(var(--safe-bottom) + 80px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ─── Stat Cards Row ─── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.stat-card {
+  background: #fff;
+  border-radius: var(--radius-card);
+  padding: 12px 16px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.stat-label {
+  font-size: 12px;
+  color: var(--gray-400);
+  font-weight: 600;
+  letter-spacing: .3px;
+}
+.stat-value {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -1px;
+}
+.stat-value.red   { color: var(--red); }
+.stat-value.blue  { color: var(--blue-mid); }
+.stat-value.green { color: var(--green); }
+.stat-value.amber { color: var(--amber); }
+.stat-unit { font-size: 15px; font-weight: 600; color: var(--gray-600); }
+
+/* ─── Progress Card ─── */
+.progress-card {
+  background: #fff;
+  border-radius: var(--radius-card);
+  padding: 12px 16px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+.ring-wrap { position: relative; flex-shrink: 0; }
+.ring-wrap svg { transform: rotate(-90deg); }
+.ring-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.ring-pct  { font-size: 18px; font-weight: 800; color: var(--blue-mid); }
+.ring-sub  { font-size: 9px; color: var(--gray-400); font-weight: 500; }
+.progress-stats { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+.progress-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+.progress-row .lbl { color: var(--gray-600); }
+.progress-row .val { font-weight: 700; color: var(--gray-900); }
+.progress-title {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: var(--gray-900);
+}
+
+/* ─── Section Label ─── */
+.section-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gray-400);
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  padding: 0 4px;
+}
+
+/* ─── Menu Grid — Apple iOS icon style ─── */
+.menu-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.menu-card {
+  border-radius: 20px;
+  padding: 22px 12px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  border: none;
+  transition: transform .12s;
+  -webkit-user-select: none;
+  user-select: none;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 3px 10px rgba(0,0,0,.10);
+}
+.menu-card:active { transform: scale(.93); }
+
+/* 각 카드 배경색 — 반투명 파스텔 */
+.menu-card-gray   { background: rgba(156,163,175, .18); }
+.menu-card-blue   { background: rgba(59, 130,246, .15); }
+.menu-card-yellow { background: rgba(245,158, 11, .15); }
+.menu-card-red    { background: rgba(239, 68, 68, .15); }
+.menu-card-purple { background: rgba(139, 92,246, .15); }
+.menu-card-green  { background: rgba( 16,185,129, .15); }
+
+/* 아이콘 */
+.menu-icon {
+  width: 72px; height: 72px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 48px;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.15));
+}
+
+.menu-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gray-900);
+  text-align: center;
+  line-height: 1.3;
+}
+
+/* ─── FAB ─── */
+.fab {
+  position: fixed;
+  bottom: calc(var(--safe-bottom) + 24px);
+  right: 20px;
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  background: var(--blue-mid);
+  box-shadow: var(--shadow-fab);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  border: none;
+  color: #fff;
+  font-size: 28px;
+  z-index: 200;
+  transition: transform .15s;
+}
+.fab:active { transform: scale(.92); }
+
+/* ─── Bottom Nav ─── */
+.bottom-nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(255,255,255,.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--gray-200);
+  display: flex;
+  padding-bottom: var(--safe-bottom);
+  z-index: 150;
+}
+.bn-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 0;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: var(--gray-400);
+  font-size: 10px;
+  font-weight: 500;
+  transition: color .15s;
+}
+.bn-item.active { color: var(--blue-mid); }
+.bn-icon { font-size: 22px; }
+
+/* ─── Modal ─── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.5);
+  backdrop-filter: blur(4px);
+  z-index: 300;
+  display: flex; align-items: flex-end;
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal-sheet {
+  background: #fff;
+  border-radius: 24px 24px 0 0;
+  width: 100%;
+  padding: 0 0 calc(var(--safe-bottom) + 20px);
+  transform: translateY(100%);
+  transition: transform .3s cubic-bezier(.32,1,.23,1);
+  max-height: 90dvh;
+  overflow-y: auto;
+}
+.modal-overlay.open .modal-sheet { transform: translateY(0); }
+.modal-handle {
+  width: 36px; height: 4px;
+  background: var(--gray-200);
+  border-radius: 2px;
+  margin: 12px auto 0;
+}
+.modal-header {
+  padding: 16px 20px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--gray-100);
+}
+.modal-title { font-size: 18px; font-weight: 700; }
+.modal-close {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--gray-100);
+  border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; color: var(--gray-600);
+}
+.modal-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+/* ─── Form Fields ─── */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 13px; font-weight: 600; color: var(--gray-600); }
+.field input,
+.field select,
+.field textarea {
+  border: 1.5px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 13px 14px;
+  font-size: 15px;
+  font-family: var(--font);
+  background: var(--gray-50);
+  color: var(--gray-900);
+  outline: none;
+  transition: border-color .15s;
+  width: 100%;
+}
+.field input:focus,
+.field select:focus,
+.field textarea:focus { border-color: var(--blue-mid); background: #fff; }
+.field textarea { min-height: 88px; resize: none; }
+
+/* ─── Severity Chips ─── */
+.chip-row { display: flex; gap: 8px; }
+.chip {
+  flex: 1;
+  padding: 10px 8px;
+  border-radius: 10px;
+  border: 1.5px solid var(--gray-200);
+  background: var(--gray-50);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  transition: all .15s;
+}
+.chip.sel-high  { border-color: var(--red);   background: #FEF2F2; color: var(--red); }
+.chip.sel-mid   { border-color: var(--amber); background: #FFFBEB; color: var(--amber); }
+.chip.sel-low   { border-color: var(--green); background: #ECFDF5; color: var(--green); }
+
+/* ─── Photo Area ─── */
+.photo-zone {
+  border: 2px dashed var(--gray-200);
+  border-radius: 14px;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  background: var(--gray-50);
+  transition: border-color .15s, background .15s;
+}
+.photo-zone:active { border-color: var(--blue-mid); background: var(--blue-light); }
+.photo-zone-icon { font-size: 36px; }
+.photo-zone-text { font-size: 14px; color: var(--gray-400); font-weight: 500; }
+.photo-previews {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.photo-thumb {
+  aspect-ratio: 1;
+  border-radius: 10px;
+  object-fit: cover;
+  width: 100%;
+  background: var(--gray-200);
+}
+
+/* ─── Submit Button ─── */
+.btn-submit {
+  width: 100%;
+  padding: 16px;
+  background: var(--blue-mid);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-btn);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: opacity .15s;
+}
+.btn-submit:active { opacity: .85; }
+.btn-submit:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ─── Record List ─── */
+.record-list { display: flex; flex-direction: column; gap: 12px; }
+.record-card {
+  background: #fff;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform .15s;
+}
+.record-card:active { transform: scale(.98); }
+.record-img {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  background: var(--gray-200);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  color: var(--gray-400);
+}
+.record-img img { width: 100%; height: 100%; object-fit: cover; }
+.record-body { padding: 14px 16px; }
+.record-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+.record-meta { font-size: 12px; color: var(--gray-400); display: flex; gap: 10px; }
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.badge-high  { background: #FEF2F2; color: var(--red); }
+.badge-mid   { background: #FFFBEB; color: var(--amber); }
+.badge-low   { background: #ECFDF5; color: var(--green); }
+
+/* ─── Empty State ─── */
+.empty {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 12px;
+  padding: 60px 20px;
+  color: var(--gray-400);
+}
+.empty-icon { font-size: 56px; }
+.empty-text { font-size: 15px; font-weight: 500; text-align: center; }
+
+/* ─── Toast ─── */
+.toast {
+  position: fixed;
+  bottom: calc(var(--safe-bottom) + 90px);
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--gray-900);
+  color: #fff;
+  padding: 12px 22px;
+  border-radius: 50px;
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 500;
+  opacity: 0;
+  transition: all .25s;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ─── Loading Spinner ─── */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 20px; height: 20px;
+  border: 2.5px solid rgba(255,255,255,.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+/* ─── Lightbox ─── */
+.lightbox {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.95);
+  z-index: 600;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s;
+}
+.lightbox.open { opacity: 1; pointer-events: all; }
+.lightbox img { max-width: 95vw; max-height: 90dvh; object-fit: contain; border-radius: 8px; }
+.lightbox-close {
+  position: absolute; top: 20px; right: 20px;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.15);
+  border: none; cursor: pointer;
+  color: #fff; font-size: 20px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ─── Report ─── */
+.report-section { margin-bottom:16px; }
+.report-section-title {
+  font-size:13px; font-weight:700;
+  color:var(--blue-deep);
+  margin-bottom:8px;
+  padding-bottom:4px;
+  border-bottom:1px solid var(--gray-100);
+}
+.report-bar-row {
+  display:flex; align-items:center; gap:8px;
+  margin-bottom:6px; font-size:13px;
+}
+.report-bar-label { width:80px; color:var(--gray-600); flex-shrink:0; font-size:12px; }
+.report-bar-track {
+  flex:1; height:8px; background:var(--gray-100);
+  border-radius:4px; overflow:hidden;
+}
+.report-bar-fill { height:100%; border-radius:4px; transition:width .4s; }
+.report-bar-count { width:28px; text-align:right; font-weight:700; color:var(--gray-900); font-size:12px; }
+.rstat-card {
+  background:var(--gray-50); border-radius:12px;
+  padding:12px 8px; text-align:center;
+}
+.rstat-num { font-size:22px; font-weight:800; }
+.rstat-lbl { font-size:11px; color:var(--gray-400); font-weight:500; margin-top:2px; }
+#rLaw { white-space:pre-wrap; }
+
+/* ─── Action Tab ─── */
+.action-tab {
+  flex: 1;
+  padding: 10px;
+  border-radius: 12px;
+  border: none;
+  background: var(--gray-100);
+  color: var(--gray-600);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+}
+.action-tab.active {
+  background: var(--blue-mid);
+  color: #fff;
+}
+
+/* ─── View Tabs (Home / Records) ─── */
+#viewHome     { display: block; }
+#viewRecords  { display: none; }
+#viewAlerts   { display: none; }
+#viewSettings { display: none; }
+#viewLayout   { display: none; }
+#viewAction   { display: none; }
+#viewReport   { display: none; }
+
+/* ─── Layout View ─── */
+.bldg-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.bldg-card {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.08);
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: transform .12s;
+  position: relative;
+  overflow: hidden;
+}
+.bldg-card:active { transform: scale(.95); }
+.bldg-thumb {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  position: absolute; inset: 0;
+  border-radius: 20px;
+}
+.bldg-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,.55) 0%, transparent 55%);
+  border-radius: 20px;
+}
+.bldg-label {
+  position: absolute;
+  bottom: 14px; left: 14px; right: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0,0,0,.4);
+}
+.bldg-icon-placeholder {
+  font-size: 40px;
+  opacity: .4;
+}
+.bldg-name-plain {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--gray-900);
+  text-align: center;
+  padding: 0 8px;
+}
+.bldg-delete {
+  position: absolute;
+  top: 8px; right: 8px;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: rgba(0,0,0,.35);
+  border: none; cursor: pointer;
+  color: #fff; font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 10;
+}
+
+/* ─── 건물 추가 모달 ─── */
+#bldgModal .modal-body { gap: 14px; }
+.upload-zone {
+  border: 2px dashed var(--gray-200);
+  border-radius: 14px;
+  padding: 28px 16px;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 8px;
+  cursor: pointer;
+  background: var(--gray-50);
+  transition: border-color .15s;
+  text-align: center;
+}
+.upload-zone:active { border-color: var(--blue-mid); background: var(--blue-light); }
+.upload-zone-icon { font-size: 36px; }
+.upload-zone-text { font-size: 13px; color: var(--gray-400); font-weight: 500; }
+.upload-preview {
+  width: 100%; border-radius: 12px;
+  max-height: 160px; object-fit: cover;
+  display: none;
+}
+
+/* ─── 파일 뷰어 ─── */
+#viewerOverlay {
+  position: fixed; inset: 0;
+  background: #000;
+  z-index: 400;
+  display: none;
+  flex-direction: column;
+}
+#viewerOverlay.open { display: flex; }
+.viewer-nav {
+  background: rgba(0,0,0,.7);
+  display: flex; align-items: center;
+  padding: 12px 16px;
+  gap: 12px;
+  padding-top: calc(var(--safe-top) + 12px);
+}
+.viewer-title { flex: 1; font-size: 16px; font-weight: 700; color: #fff; }
+.viewer-close {
+  width: 36px; height: 36px;
+  border-radius: 50%; background: rgba(255,255,255,.15);
+  border: none; color: #fff; font-size: 18px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.viewer-body {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.viewer-body img {
+  max-width: 100%; max-height: 100%;
+  object-fit: contain;
+}
+.viewer-body iframe {
+  width: 100%; height: 100%; border: none;
+}
+</style>
+</head>
+<body>
+
+<!-- Status Bar -->
+<div class="status-bar"></div>
+
+<!-- Nav -->
+<nav class="nav">
+  <button class="nav-icon" onclick="toggleDemoMode()">☰</button>
+  <span class="nav-title" id="navTitle">홈</span>
+  <button class="nav-icon" id="navBell" onclick="showToast('새 알림이 없습니다')">🔔</button>
+</nav>
+
+<!-- ─── HOME VIEW ─── -->
+<div id="viewHome" class="scroll">
+
+  <!-- Stat Cards -->
+  <div class="stat-grid">
+    <div class="stat-card" onclick="switchTab('records')">
+      <span class="stat-label">진행</span>
+      <div><span class="stat-value blue" id="statInProgress">0</span><span class="stat-unit"> 건</span></div>
+    </div>
+    <div class="stat-card" onclick="switchTab('records')">
+      <span class="stat-label">완료</span>
+      <div><span class="stat-value green" id="statDone">0</span><span class="stat-unit"> 건</span></div>
+    </div>
+  </div>
+
+  <!-- spacer -->
+  <div style="height:6px"></div>
+
+  <!-- Progress Card -->
+  <div class="progress-card">
+    <div class="ring-wrap">
+      <svg width="96" height="96" viewBox="0 0 96 96">
+        <circle cx="48" cy="48" r="38" fill="none" stroke="#E5E7EB" stroke-width="9"/>
+        <circle id="ringCircle" cx="48" cy="48" r="38" fill="none" stroke="#2563EB"
+          stroke-width="9" stroke-linecap="round"
+          stroke-dasharray="238.76" stroke-dashoffset="238.76"/>
+      </svg>
+      <div class="ring-text">
+        <span class="ring-pct" id="ringPct">0%</span>
+        <span class="ring-sub">완료율</span>
+      </div>
+    </div>
+    <div class="progress-stats">
+      <div class="progress-title">이달의 점검 현황</div>
+      <div class="progress-row"><span class="lbl">점검</span><span class="val" id="ps점검">0 건</span></div>
+      <div class="progress-row"><span class="lbl">조치</span><span class="val" id="ps조치">0 건</span></div>
+      <div class="progress-row"><span class="lbl">완료</span><span class="val" id="ps완료">0 건</span></div>
+    </div>
+  </div>
+
+  <!-- Menu -->
+  <span class="section-label">메뉴</span>
+  <div class="menu-grid">
+    <div class="menu-card menu-card-gray" onclick="switchTab('layout')">
+      <div class="menu-icon">🗺️</div>
+      <span class="menu-name">레이아웃</span>
+    </div>
+    <div class="menu-card menu-card-yellow" onclick="openModal()">
+      <div class="menu-icon">📋</div>
+      <span class="menu-name">현장점검</span>
+    </div>
+    <div class="menu-card menu-card-red" onclick="switchTab('action')">
+      <div class="menu-icon">📝</div>
+      <span class="menu-name">조치관리</span>
+    </div>
+    <div class="menu-card menu-card-purple" onclick="showToast('준비 중입니다')">
+      <div class="menu-icon">📚</div>
+      <span class="menu-name">EHS 문서</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- ─── ACTION VIEW (조치관리) ─── -->
+<div id="viewAction" class="scroll">
+  <div id="actionList" class="record-list"></div>
+</div>
+
+<!-- ─── LAYOUT VIEW ─── -->
+<div id="viewLayout" class="scroll">
+  <div id="bldgGrid" class="bldg-grid"></div>
+</div>
+
+<!-- ─── RECORDS VIEW ─── -->
+<div id="viewRecords" class="scroll">
+  <div id="recordList" class="record-list">
+    <div class="empty">
+      <div class="empty-icon">📷</div>
+      <div class="empty-text">등록된 점검 기록이 없습니다<br>+ 버튼을 눌러 첫 점검을 시작하세요</div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── ALERTS VIEW ─── -->
+<div id="viewAlerts" class="scroll">
+  <div class="empty">
+    <div class="empty-icon">🔔</div>
+    <div class="empty-text">새로운 알림이 없습니다</div>
+  </div>
+</div>
+
+<!-- ─── SETTINGS VIEW ─── -->
+<div id="viewSettings" class="scroll">
+
+  <div style="background:#fff;border-radius:18px;padding:20px;box-shadow:var(--shadow-card)">
+    <div style="font-size:16px;font-weight:700;margin-bottom:4px">🤖 AI 설정</div>
+    <div style="font-size:13px;color:var(--gray-400);margin-bottom:16px">보고서 AI 분석에 사용됩니다</div>
+
+    <div class="field">
+      <label>Gemini API 키</label>
+      <div style="position:relative">
+        <input type="password" id="settingApiKey" placeholder="AIzaSy... 형식의 키를 입력하세요"
+          style="padding-right:48px">
+        <button onclick="toggleKeyVisible()" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);border:none;background:none;font-size:18px;cursor:pointer" id="eyeBtn">👁️</button>
+      </div>
+      <div style="font-size:11px;color:var(--gray-400);margin-top:4px">
+        aistudio.google.com → API 키 메뉴에서 발급 (무료)
+      </div>
+    </div>
+
+    <button class="btn-submit" onclick="saveApiKey()" style="margin-top:4px">
+      💾 저장
+    </button>
+
+    <div id="keyStatus" style="display:none;margin-top:12px;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;text-align:center"></div>
+  </div>
+
+  <!-- 데이터 관리 -->
+  <div style="background:#fff;border-radius:18px;padding:20px;box-shadow:var(--shadow-card)">
+    <div style="font-size:16px;font-weight:700;margin-bottom:16px">🗂️ 데이터 관리</div>
+    <button onclick="clearAllData()"
+      style="width:100%;padding:14px;border-radius:12px;border:1.5px solid var(--red);background:#FEF2F2;color:var(--red);font-size:14px;font-weight:700;cursor:pointer">
+      🗑️ 전체 데이터 초기화
+    </button>
+    <div style="font-size:11px;color:var(--gray-400);margin-top:8px;text-align:center">
+      점검 기록, 건물, 부서 목록이 모두 삭제됩니다
+    </div>
+  </div>
+
+  <div style="text-align:center;font-size:12px;color:var(--gray-400);padding:8px">
+    EHS 현장점검 v1.0.0
+  </div>
+
+</div>
+
+<!-- FAB -->
+<button class="fab" id="fab" onclick="fabClick()">＋</button>
+
+<!-- ─── 조치 입력 모달 ─── -->
+<div class="modal-overlay" id="actionModal" onclick="closeActionModal(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <span class="modal-title">조치 등록</span>
+      <button class="modal-close" onclick="closeActionModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- 점검 요약 -->
+      <div id="actionSummary" style="background:var(--gray-100);border-radius:12px;padding:12px 14px;font-size:13px;color:var(--gray-600);line-height:1.7"></div>
+
+      <div class="field">
+        <label>개선 내용</label>
+        <textarea id="actionNote" placeholder="조치한 내용을 입력해주세요" style="min-height:80px"></textarea>
+      </div>
+
+      <div class="field">
+        <label>개선 사진 <span style="color:var(--gray-400);font-weight:400">(최대 3장)</span></label>
+        <div class="photo-zone" id="actionPhotoZone" onclick="triggerActionCamera()">
+          <div class="photo-zone-icon">📸</div>
+          <div class="photo-zone-text">탭하여 사진 촬영 또는 선택</div>
+        </div>
+        <div class="photo-previews" id="actionPhotoPreviews"></div>
+        <input type="file" id="actionFileInput" accept="image/*" multiple style="display:none" onchange="handleActionFiles(event)">
+      </div>
+
+      <button class="btn-submit" id="btnActionSubmit" onclick="submitAction()"
+        style="background:var(--green)">
+        <span id="btnActionText">✅ 조치 완료</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── 건물 추가 모달 ─── -->
+<div class="modal-overlay" id="bldgModal" onclick="closeBldgModal(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <span class="modal-title">건물 추가</span>
+      <button class="modal-close" onclick="closeBldgModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>건물 선택 또는 신규 입력</label>
+        <select id="bldgSelect" onchange="handleBldgSelect(this)">
+          <option value="__new__">+ 새 건물 직접 입력</option>
+        </select>
+        <input type="text" id="bldgName" placeholder="새 건물명을 입력하세요" style="margin-top:8px">
+      </div>
+      <div class="field">
+        <label>도면 / 사진 업로드</label>
+        <div class="upload-zone" onclick="document.getElementById('bldgFile').click()">
+          <div class="upload-zone-icon">📁</div>
+          <div class="upload-zone-text">탭하여 사진 또는 PDF 선택</div>
+        </div>
+        <img id="bldgPreview" class="upload-preview" alt="미리보기">
+        <input type="file" id="bldgFile" accept="image/*,application/pdf" style="display:none" onchange="previewBldgFile(event)">
+      </div>
+      <button class="btn-submit" onclick="saveBldg()">✅ 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── 파일 뷰어 ─── -->
+<div id="viewerOverlay">
+  <div class="viewer-nav">
+    <button class="viewer-close" onclick="closeViewer()">✕</button>
+    <span class="viewer-title" id="viewerTitle"></span>
+  </div>
+  <div class="viewer-body" id="viewerBody"></div>
+</div>
+
+<!-- Bottom Nav -->
+<nav class="bottom-nav">
+  <button class="bn-item active" id="bn-home" onclick="switchTab('home')">
+    <span class="bn-icon">🏠</span><span>홈</span>
+  </button>
+  <button class="bn-item" id="bn-report" onclick="switchTab('report')">
+    <span class="bn-icon">📊</span><span>보고서</span>
+  </button>
+  <button class="bn-item" id="bn-alerts" onclick="switchTab('alerts')">
+    <span class="bn-icon">🔔</span><span>알림</span>
+  </button>
+  <button class="bn-item" id="bn-settings" onclick="switchTab('settings')">
+    <span class="bn-icon">⚙️</span><span>설정</span>
+  </button>
+</nav>
+
+<!-- ─── REPORT VIEW ─── -->
+<div id="viewReport" class="scroll">
+
+  <!-- 기간 선택 -->
+  <div style="background:#fff;border-radius:18px;padding:16px;box-shadow:var(--shadow-card)">
+    <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--gray-900)">📅 보고 기간</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button class="action-tab active" id="rperiod-day" onclick="setReportPeriod('day')">일간</button>
+      <button class="action-tab" id="rperiod-month" onclick="setReportPeriod('month')">월간</button>
+      <button class="action-tab" id="rperiod-all" onclick="setReportPeriod('all')">전체</button>
+    </div>
+    <div id="reportDateWrap" style="display:flex;gap:8px;align-items:center">
+      <input type="date" id="reportDate" style="flex:1;border:1.5px solid var(--gray-200);border-radius:10px;padding:10px;font-size:14px;background:var(--gray-50)" onchange="generateReport()">
+    </div>
+  </div>
+
+  <!-- 생성 버튼 -->
+  <button class="btn-submit" onclick="generateReport()" style="background:var(--blue-mid)">
+    📊 보고서 생성
+  </button>
+
+  <!-- 리포트 본문 (인쇄용) -->
+  <div id="reportBody" style="display:none;background:#fff;border-radius:18px;padding:20px;box-shadow:var(--shadow-card)">
+
+    <!-- 헤더 -->
+    <div style="text-align:center;border-bottom:2px solid var(--blue-mid);padding-bottom:14px;margin-bottom:16px">
+      <div style="font-size:11px;color:var(--gray-400);font-weight:600;letter-spacing:1px">EHS INSPECTION REPORT</div>
+      <div style="font-size:20px;font-weight:800;color:var(--blue-deep);margin:4px 0" id="rTitle">안전점검 보고서</div>
+      <div style="font-size:12px;color:var(--gray-400)" id="rPeriodLabel"></div>
+    </div>
+
+    <!-- 요약 통계 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px" id="rStats"></div>
+
+    <!-- 장소별 현황 -->
+    <div class="report-section">
+      <div class="report-section-title">📍 점검 장소</div>
+      <div id="rLocations"></div>
+    </div>
+
+    <!-- 부서별 현황 -->
+    <div class="report-section">
+      <div class="report-section-title">🏢 점검 부서</div>
+      <div id="rDepts"></div>
+    </div>
+
+    <!-- 위험등급 현황 -->
+    <div class="report-section">
+      <div class="report-section-title">⚠️ 위험등급 현황</div>
+      <div id="rSeverity"></div>
+    </div>
+
+    <!-- 주요 문제점 -->
+    <div class="report-section">
+      <div class="report-section-title">🔍 주요 문제점</div>
+      <div id="rIssues"></div>
+    </div>
+
+    <!-- AI 보고서 4개 섹션 -->
+    <div class="report-section" id="sec1" style="display:none">
+      <div class="report-section-title">① 현장점검 및 조치관리 분석</div>
+      <div id="rSec1" style="font-size:13px;line-height:1.8;color:var(--gray-700)"></div>
+    </div>
+
+    <div class="report-section" id="sec2" style="display:none">
+      <div class="report-section-title">② 관련 법규</div>
+      <div id="rSec2" style="font-size:13px;line-height:1.8;color:var(--gray-700)"></div>
+    </div>
+
+    <div class="report-section" id="sec3" style="display:none">
+      <div class="report-section-title">③ 유사 사고 사례 (산업안전공단)</div>
+      <div id="rSec3" style="font-size:13px;line-height:1.8;color:var(--gray-700)"></div>
+    </div>
+
+    <div class="report-section" id="sec4" style="display:none">
+      <div class="report-section-title">④ 주요 시사점 및 활동 방향</div>
+      <div id="rSec4" style="font-size:13px;line-height:1.8;color:var(--gray-700)"></div>
+    </div>
+
+    <div id="rAiLoading" style="display:none;text-align:center;padding:20px;color:var(--gray-400)">
+      <div style="font-size:24px;margin-bottom:8px">🤖</div>
+      <div id="rAiStatus" style="font-size:13px;font-weight:600"></div>
+    </div>
+
+    <!-- 생성일 -->
+    <div style="text-align:right;font-size:11px;color:var(--gray-400);margin-top:16px;padding-top:12px;border-top:1px solid var(--gray-100)" id="rCreatedAt"></div>
+  </div>
+
+</div>
+
+<!-- ─── INSPECTION MODAL ─── -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <span class="modal-title">현장점검 등록</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="field">
+        <label>구역 / 위치</label>
+        <select id="locationSelect" onchange="handleLocationSelect(this)">
+          <option value="">선택하세요</option>
+          <option value="__other__">기타 (직접 입력)</option>
+        </select>
+        <input type="text" id="fieldLocation" placeholder="위치를 직접 입력하세요"
+          style="display:none;margin-top:8px">
+      </div>
+
+      <div class="field">
+        <label>부서</label>
+        <select id="deptSelect" onchange="handleDeptSelect(this)">
+          <option value="">선택하세요</option>
+          <option value="__other__">+ 새 부서 직접 입력</option>
+        </select>
+        <input type="text" id="fieldDept" placeholder="부서명을 입력하세요"
+          style="display:none;margin-top:8px">
+      </div>
+
+      <div class="field">
+        <label>점검 항목</label>
+        <input type="text" id="fieldItem" placeholder="예: 소화기 관리 상태">
+      </div>
+
+      <div class="field">
+        <label>위험 등급</label>
+        <div class="chip-row">
+          <div class="chip" id="chip-high" onclick="selectSeverity('high')">🔴 고위험</div>
+          <div class="chip" id="chip-mid"  onclick="selectSeverity('mid')">🟡 중위험</div>
+          <div class="chip" id="chip-low"  onclick="selectSeverity('low')">🟢 저위험</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>문제 내용</label>
+        <textarea id="fieldNote" placeholder="발견된 문제점을 간략히 적어주세요"></textarea>
+      </div>
+
+      <!-- Photo Zone -->
+      <div class="field">
+        <label>현장 사진 <span style="color:var(--gray-400);font-weight:400">(최대 5장)</span></label>
+        <div class="photo-zone" id="photoZone" onclick="triggerCamera()">
+          <div class="photo-zone-icon">📸</div>
+          <div class="photo-zone-text">탭하여 사진 촬영 또는 선택</div>
+        </div>
+        <div class="photo-previews" id="photoPreviews"></div>
+        <input type="file" id="fileInput" accept="image/*" multiple capture="environment"
+          style="display:none" onchange="handleFiles(event)">
+      </div>
+
+      <div id="firebaseNotice" style="background:#EFF6FF;border-radius:12px;padding:12px 14px;font-size:13px;color:#1e40af;display:none">
+        📱 로컬 저장 모드 — 사진과 데이터가 이 기기에 저장됩니다.
+      </div>
+
+      <button class="btn-submit" id="btnSubmit" onclick="submitInspection()">
+        <span id="btnText">✅ 점검 등록</span>
+      </button>
+
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <img id="lightboxImg" src="" alt="">
+  <button class="lightbox-close">✕</button>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── IndexedDB 초기화 ───
+// ─── 저장소: localStorage 기반 ───
+// 메타데이터와 사진(base64)을 분리 저장해 용량 효율화
+const LS = {
+  // 점검 기록
+  getRecords() {
+    try { return JSON.parse(localStorage.getItem('ehs_records') || '[]'); } catch{ return []; }
+  },
+  saveRecords(arr) {
+    // 사진 data는 별도 키로 저장 → 메타만 저장
+    const meta = arr.map(r => ({ ...r, photoURLs: r.photoURLs ? r.photoURLs.map((_, i) => `photo_${r.id}_${i}`) : [] }));
+    localStorage.setItem('ehs_records', JSON.stringify(meta));
+  },
+  getPhoto(key) {
+    try { return localStorage.getItem(key); } catch { return null; }
+  },
+  savePhoto(key, data) {
+    try { localStorage.setItem(key, data); return true; }
+    catch(e) { console.warn('사진 저장 실패(용량 초과?)', e); return false; }
+  },
+  deletePhoto(key) { localStorage.removeItem(key); },
+
+  // 건물
+  getBuildings() {
+    try { return JSON.parse(localStorage.getItem('ehs_buildings') || '[]'); } catch { return []; }
+  },
+  saveBuildings(arr) {
+    const meta = arr.map(b => ({ ...b, fileData: b.fileData ? `bldg_${b.id}` : null }));
+    localStorage.setItem('ehs_buildings', JSON.stringify(meta));
+  },
+  getBldgFile(key) {
+    try { return localStorage.getItem(key); } catch { return null; }
+  },
+  saveBldgFile(key, data) {
+    try { localStorage.setItem(key, data); return true; }
+    catch(e) { console.warn('건물사진 저장 실패', e); return false; }
+  },
+  deleteBldgFile(key) { localStorage.removeItem(key); },
+};
+
+// 레코드 배열에 실제 사진 data 복원
+function hydrateRecords(metaArr) {
+  return metaArr.map(r => ({
+    ...r,
+    photoURLs: (r.photoURLs || []).map(key => LS.getPhoto(key)).filter(Boolean)
+  }));
+}
+function hydrateBuildings(metaArr) {
+  return metaArr.map(b => ({
+    ...b,
+    fileData: b.fileData ? LS.getBldgFile(b.fileData) : null
+  }));
+}
+
+async function openDB() { /* localStorage 모드 — DB 불필요 */ }
+async function idbGetAll() { return hydrateRecords(LS.getRecords()); }
+async function idbPut(record) {
+  const all = LS.getRecords();
+  // 사진 분리 저장
+  const photoKeys = (record.photoURLs || []).map((data, i) => {
+    const key = `photo_${record.id}_${i}`;
+    LS.savePhoto(key, data);
+    return key;
+  });
+  const meta = { ...record, photoURLs: photoKeys };
+  const idx = all.findIndex(r => r.id === record.id);
+  if (idx >= 0) all[idx] = meta; else all.push(meta);
+  localStorage.setItem('ehs_records', JSON.stringify(all));
+}
+async function idbDelete(id) {
+  const all = LS.getRecords();
+  const rec = all.find(r => r.id === id);
+  if (rec) (rec.photoURLs || []).forEach(k => LS.deletePhoto(k));
+  localStorage.setItem('ehs_records', JSON.stringify(all.filter(r => r.id !== id)));
+}
+async function idbBldgGetAll() { return hydrateBuildings(LS.getBuildings()); }
+async function idbBldgPut(b) {
+  const all = LS.getBuildings();
+  const fileKey = b.fileData ? `bldg_${b.id}` : null;
+  if (fileKey && b.fileData) LS.saveBldgFile(fileKey, b.fileData);
+  const meta = { ...b, fileData: fileKey };
+  const idx = all.findIndex(x => x.id === b.id);
+  if (idx >= 0) all[idx] = meta; else all.push(meta);
+  localStorage.setItem('ehs_buildings', JSON.stringify(all));
+}
+async function idbBldgDelete(id) {
+  const all = LS.getBuildings();
+  const b = all.find(x => x.id === id);
+  if (b && b.fileData) LS.deleteBldgFile(b.fileData);
+  localStorage.setItem('ehs_buildings', JSON.stringify(all.filter(x => x.id !== id)));
+}
+function fileToBase64(file) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const MAX = 800;
+      let { width: w, height: h } = img;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else       { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      // setTimeout으로 UI 블로킹 방지
+      setTimeout(() => res(canvas.toDataURL('image/jpeg', 0.55)), 0);
+    };
+    img.onerror = rej;
+    img.src = url;
+  });
+}
+
+// 순차 처리 (병렬 아님 — 메모리 폭발 방지)
+async function filesToBase64Array(files) {
+  const result = [];
+  for (const f of files) {
+    const b64 = await fileToBase64(f);
+    result.push(b64);
+  }
+  return result;
+}
+
+// ─── State ───
+let selectedSeverity = '';
+let selectedFiles = [];
+let previewURLs = [];
+let records = [];
+let buildings = [];
+let departments = []; // 부서 목록
+let bldgFileData = null;
+let currentTab = 'home';
+
+// 부서 목록 localStorage 저장/로드
+function loadDepts() {
+  try { departments = JSON.parse(localStorage.getItem('ehs_depts') || '[]'); } catch { departments = []; }
+}
+function saveDept(name) {
+  if (!departments.includes(name)) {
+    departments.push(name);
+    localStorage.setItem('ehs_depts', JSON.stringify(departments));
+  }
+}
+
+// ─── Init ───
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('firebaseNotice').style.display = 'block';
+  await openDB();
+  records = await idbGetAll();
+  records.sort((a, b) => a.id - b.id);
+  updateStats();
+  renderRecords();
+  await loadBuildings();
+  loadDepts();
+});
+
+// ─── Tab Switch ───
+function switchTab(tab) {
+  currentTab = tab;
+  ['home','records','alerts','settings','layout','action','report'].forEach(t => {
+    const el = document.getElementById('view' + t.charAt(0).toUpperCase() + t.slice(1));
+    if (el) el.style.display = t === tab ? 'block' : 'none';
+    const bn = document.getElementById('bn-' + t);
+    if (bn) bn.classList.toggle('active', t === tab);
+  });
+  const titles = { home:'홈', records:'점검기록', alerts:'알림', settings:'설정', layout:'레이아웃', action:'조치관리', report:'보고서' };
+  document.getElementById('navTitle').textContent = titles[tab] || tab;
+  document.getElementById('fab').style.display =
+    (tab === 'alerts' || tab === 'settings' || tab === 'report') ? 'none' : 'flex';
+  if (tab === 'action') renderActionList();
+  if (tab === 'report') initReport();
+  if (tab === 'settings') initSettings();
+}
+
+// ─── 설정 ───
+function initSettings() {
+  const key = localStorage.getItem('gemini_api_key') || '';
+  document.getElementById('settingApiKey').value = key;
+  const status = document.getElementById('keyStatus');
+  if (key) {
+    status.style.display = 'block';
+    status.style.background = '#ECFDF5';
+    status.style.color = 'var(--green)';
+    status.textContent = '✅ API 키가 저장되어 있습니다';
+  } else {
+    status.style.display = 'none';
+  }
+}
+
+function toggleKeyVisible() {
+  const input = document.getElementById('settingApiKey');
+  const btn   = document.getElementById('eyeBtn');
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁️';
+  }
+}
+
+function saveApiKey() {
+  const key = document.getElementById('settingApiKey').value.trim();
+  if (!key) { showToast('API 키를 입력해주세요'); return; }
+  if (key.length < 20) { showToast('키가 너무 짧습니다. 전체를 복사해주세요'); return; }
+  localStorage.setItem('gemini_api_key', key);
+  const status = document.getElementById('keyStatus');
+  status.style.display = 'block';
+  status.style.background = '#ECFDF5';
+  status.style.color = 'var(--green)';
+  status.textContent = '✅ 저장됐습니다';
+  showToast('✅ API 키가 저장됐습니다');
+}
+
+function clearAllData() {
+  if (!confirm('모든 데이터를 삭제할까요?\n점검기록, 건물, 부서가 모두 사라집니다.')) return;
+  const key = localStorage.getItem('gemini_api_key'); // 키는 유지
+  localStorage.clear();
+  if (key) localStorage.setItem('gemini_api_key', key);
+  records = []; buildings = []; departments = [];
+  updateStats();
+  renderRecords();
+  renderBuildings();
+  showToast('🗑️ 데이터가 초기화됐습니다');
+}
+
+// ─── 보고서 ───
+let reportPeriod = 'day';
+
+function initReport() {
+  // 오늘 날짜 기본값
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('reportDate').value = today;
+}
+
+function setReportPeriod(p) {
+  reportPeriod = p;
+  ['day','month','all'].forEach(t =>
+    document.getElementById('rperiod-' + t).classList.toggle('active', t === p)
+  );
+  const wrap = document.getElementById('reportDateWrap');
+  if (p === 'all') {
+    wrap.style.display = 'none';
+  } else {
+    wrap.style.display = 'flex';
+    if (p === 'month') {
+      document.getElementById('reportDate').type = 'month';
+    } else {
+      document.getElementById('reportDate').type = 'date';
+    }
+  }
+}
+
+function getFilteredRecords() {
+  const dateVal = document.getElementById('reportDate').value;
+  if (reportPeriod === 'all') return records;
+  return records.filter(r => {
+    if (!r.id) return false;
+    const d = new Date(r.id);
+    const ymd = d.toISOString().split('T')[0];
+    const ym  = ymd.slice(0, 7);
+    if (reportPeriod === 'day')   return ymd === dateVal;
+    if (reportPeriod === 'month') return ym  === dateVal;
+    return true;
+  });
+}
+
+function countBy(arr, key) {
+  return arr.reduce((acc, r) => {
+    const v = r[key] || '미입력';
+    acc[v] = (acc[v] || 0) + 1;
+    return acc;
+  }, {});
+}
+
+function renderBarChart(counts, colors) {
+  const entries = Object.entries(counts).sort((a,b) => b[1]-a[1]);
+  const max = entries[0]?.[1] || 1;
+  return entries.map(([label, cnt]) => {
+    const pct = Math.round(cnt / max * 100);
+    const color = colors?.[label] || '#2563EB';
+    return `<div class="report-bar-row">
+      <div class="report-bar-label">${label}</div>
+      <div class="report-bar-track">
+        <div class="report-bar-fill" style="width:${pct}%;background:${color}"></div>
+      </div>
+      <div class="report-bar-count">${cnt}</div>
+    </div>`;
+  }).join('');
+}
+
+async function generateReport() {
+  const filtered = getFilteredRecords();
+  const body = document.getElementById('reportBody');
+
+  if (!filtered.length) {
+    showToast('해당 기간에 점검 데이터가 없습니다');
+    body.style.display = 'none';
+    return;
+  }
+
+  // 기간 라벨
+  const dateVal = document.getElementById('reportDate').value;
+  const periodLabel = reportPeriod === 'all' ? '전체 기간'
+    : reportPeriod === 'month' ? dateVal.slice(0,7) + ' 월간'
+    : dateVal + ' 일간';
+
+  document.getElementById('rPeriodLabel').textContent = periodLabel;
+  document.getElementById('rTitle').textContent = 'EHS 안전점검 보고서';
+
+  // 통계
+  const total  = filtered.length;
+  const done   = filtered.filter(r => r.status === 'done').length;
+  const high   = filtered.filter(r => r.severity === 'high').length;
+  document.getElementById('rStats').innerHTML = `
+    <div class="rstat-card"><div class="rstat-num" style="color:var(--blue-mid)">${total}</div><div class="rstat-lbl">총 점검</div></div>
+    <div class="rstat-card"><div class="rstat-num" style="color:var(--green)">${done}</div><div class="rstat-lbl">완료</div></div>
+    <div class="rstat-card"><div class="rstat-num" style="color:var(--red)">${high}</div><div class="rstat-lbl">고위험</div></div>
+  `;
+
+  // 장소
+  const locCounts = countBy(filtered, 'location');
+  document.getElementById('rLocations').innerHTML = renderBarChart(locCounts);
+
+  // 부서
+  const deptCounts = countBy(filtered, 'dept');
+  document.getElementById('rDepts').innerHTML = renderBarChart(deptCounts, {});
+
+  // 등급
+  const sevCounts = countBy(filtered, 'severity');
+  const sevColors = { high:'#EF4444', mid:'#F59E0B', low:'#10B981' };
+  const sevLabels = { high:'고위험', mid:'중위험', low:'저위험', '미입력':'미분류' };
+  const sevDisplay = Object.fromEntries(
+    Object.entries(sevCounts).map(([k,v]) => [sevLabels[k]||k, v])
+  );
+  document.getElementById('rSeverity').innerHTML = renderBarChart(sevDisplay,
+    { '고위험':'#EF4444', '중위험':'#F59E0B', '저위험':'#10B981' });
+
+  // 주요 문제점 목록
+  document.getElementById('rIssues').innerHTML = filtered
+    .filter(r => r.item)
+    .map(r => `<div style="font-size:12px;padding:6px 0;border-bottom:1px solid var(--gray-100);color:var(--gray-700)">
+      <span class="badge ${r.severity==='high'?'badge-high':r.severity==='mid'?'badge-mid':'badge-low'}" style="margin-right:6px">${sevLabels[r.severity]||'-'}</span>
+      ${r.item}${r.note ? ` — <span style="color:var(--gray-400)">${r.note}</span>` : ''}
+    </div>`).join('') || '<div style="color:var(--gray-400);font-size:13px">항목 없음</div>';
+
+  // 생성일
+  document.getElementById('rCreatedAt').textContent =
+    '생성일: ' + new Date().toLocaleString('ko-KR');
+
+  body.style.display = 'block';
+
+  // AI 법규 분석
+  await generateLawAnalysis(filtered);
+}
+
+async function generateLawAnalysis(filtered) {
+  ['sec1','sec2','sec3','sec4'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+    document.getElementById('r' + id.charAt(0).toUpperCase() + id.slice(1)).innerHTML = '';
+  });
+  const loading = document.getElementById('rAiLoading');
+  const status  = document.getElementById('rAiStatus');
+  loading.style.display = 'block';
+
+  const GEMINI_KEY = localStorage.getItem('gemini_api_key') || '';
+  const BASE = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_KEY}`;
+
+  if (!GEMINI_KEY) {
+    loading.style.display = 'none';
+    ['sec1','sec2','sec3','sec4'].forEach(id => document.getElementById(id).style.display = 'block');
+    document.getElementById('rSec1').innerHTML = '⚙️ 설정 탭에서 Gemini API 키를 먼저 입력해주세요.';
+    document.getElementById('rSec2').innerHTML = '';
+    document.getElementById('rSec3').innerHTML = '';
+    document.getElementById('rSec4').innerHTML = '';
+    showToast('설정 탭에서 API 키를 입력해주세요');
+    return;
+  }
+
+  const issues = filtered.map(r =>
+    `[${r.severity==='high'?'고위험':r.severity==='mid'?'중위험':'저위험'}] 장소:${r.location||'-'} 부서:${r.dept||'-'} 항목:${r.item||'-'}${r.note?' ('+r.note+')':''} 조치:${r.status==='done'?'완료':'미완료'}${r.actionNote?' 내용:'+r.actionNote:''}`
+  ).join('\n');
+
+  const total = filtered.length;
+  const done  = filtered.filter(r=>r.status==='done').length;
+  const high  = filtered.filter(r=>r.severity==='high').length;
+  const base  = `EHS 현장점검 데이터 (총 ${total}건, 완료 ${done}건, 고위험 ${high}건):\n${issues}`;
+
+  async function askGemini(prompt, useSearch=false) {
+    const body = {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 600 }
+    };
+    if (useSearch) body.tools = [{ google_search: {} }];
+    const res  = await fetch(BASE, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    const data = await res.json();
+    // 에러 응답 처리
+    if (data.error) throw new Error(`API 오류: ${data.error.code} - ${data.error.message}`);
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || '응답 없음';
+  }
+
+  function toHtml(text) {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+      .replace(/^[•*-]\s?/gm, '▪ ')
+      .replace(/\n/g, '<br>');
+  }
+
+  try {
+    // ① 현장점검 및 조치관리 분석
+    status.textContent = '① 현장점검 분석 중...';
+    const s1 = await askGemini(`${base}\n\n위 데이터를 분석하여 작성하세요:\n- 전체 현황 요약 2-3줄\n- 주요 문제 유형 분류\n- 조치 완료율 및 미비사항\n300자 이내, 간결하게`);
+    document.getElementById('rSec1').innerHTML = toHtml(s1);
+    document.getElementById('sec1').style.display = 'block';
+
+    // ② 관련 법규
+    status.textContent = '② 관련 법규 검토 중...';
+    const s2 = await askGemini(`${base}\n\n위 점검 항목 관련 한국 법규를 작성하세요:\n- 산업안전보건법, 소방법, 환경법 등 조항 명시\n- 각 문제유형별 해당 법조항\n300자 이내`);
+    document.getElementById('rSec2').innerHTML = toHtml(s2);
+    document.getElementById('sec2').style.display = 'block';
+
+    // ③ 유사 사례 (Google 검색 grounding)
+    status.textContent = '③ 유사 사고 사례 검색 중...';
+    const keywords = filtered.map(r=>r.item).filter(Boolean).slice(0,3).join(', ');
+    const s3 = await askGemini(
+      `한국 산업안전보건공단(KOSHA) 사례에서 "${keywords}" 관련 산업재해 사고 사례 2건을 아래 형식으로 작성하세요:\n\n【사례 1】\n• 사고 유형:\n• 발생 경위:\n• 피해:\n• 예방 대책:\n\n【사례 2】\n• 사고 유형:\n• 발생 경위:\n• 피해:\n• 예방 대책:`,
+      true // 웹검색 활성화
+    );
+    document.getElementById('rSec3').innerHTML = toHtml(s3);
+    document.getElementById('sec3').style.display = 'block';
+
+    // ④ 시사점 및 활동 방향
+    status.textContent = '④ 시사점 및 활동방향 작성 중...';
+    const s4 = await askGemini(`${base}\n\n위 점검 결과 기반으로 작성하세요:\n- 핵심 시사점 2-3가지\n- 단기 개선 활동 (1개월 이내)\n- 중장기 안전관리 방향\n350자 이내`);
+    document.getElementById('rSec4').innerHTML = toHtml(s4);
+    document.getElementById('sec4').style.display = 'block';
+
+    loading.style.display = 'none';
+
+  } catch(e) {
+    console.error(e);
+    loading.style.display = 'none';
+    ['sec1','sec2','sec3','sec4'].forEach(id => document.getElementById(id).style.display = 'block');
+    const errMsg = `❌ 오류: ${e.message}`;
+    document.getElementById('rSec1').innerHTML = errMsg;
+    document.getElementById('rSec2').innerHTML = '▪ 산업안전보건법 제38조 (안전조치)<br>▪ 소방시설법 제12조<br>▪ 화학물질관리법 제14조';
+    document.getElementById('rSec3').innerHTML = '오류로 인해 사례를 가져올 수 없습니다.';
+    document.getElementById('rSec4').innerHTML = '▪ 고위험 항목 우선 조치<br>▪ 정기 점검 주기 단축<br>▪ 담당자 안전교육 실시';
+  }
+}
+let actionTab = 'pending'; // 'pending' | 'done'
+let currentActionId = null;
+let actionFiles = [];
+let actionPreviewURLs = [];
+
+function switchActionTab(tab) {
+  actionTab = tab;
+  ['pending','done'].forEach(t => {
+    document.getElementById('atab-' + t).classList.toggle('active', t === tab);
+  });
+  renderActionList();
+}
+
+function renderActionList() {
+  const list = document.getElementById('actionList');
+  const sorted = records.slice().reverse();
+
+  if (!sorted.length) {
+    list.innerHTML = `<div class="empty">
+      <div class="empty-icon">📋</div>
+      <div class="empty-text">등록된 점검 항목이 없습니다</div>
+    </div>`;
+    return;
+  }
+
+  const sevColor = { high:'badge-high', mid:'badge-mid', low:'badge-low' };
+  const sevLabel = { high:'고위험', mid:'중위험', low:'저위험' };
+
+  list.innerHTML = sorted.map(r => {
+    const statusBadge = r.status === 'done'
+      ? `<span class="badge" style="background:#ECFDF5;color:var(--green)">✅ 완료</span>`
+      : `<span class="badge" style="background:#FEF2F2;color:var(--red)">⏳ 미완료</span>`;
+
+    // 문제사진 + 개선사진 나란히
+    const problemImg = r.photoURLs && r.photoURLs[0]
+      ? `<div style="flex:1;display:flex;flex-direction:column;gap:4px">
+           <div style="font-size:11px;color:var(--gray-400);font-weight:600;text-align:center">문제</div>
+           <img src="${r.photoURLs[0]}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px" onclick="openLightbox('${r.photoURLs[0]}')">
+         </div>`
+      : `<div style="flex:1;display:flex;flex-direction:column;gap:4px">
+           <div style="font-size:11px;color:var(--gray-400);font-weight:600;text-align:center">문제</div>
+           <div style="aspect-ratio:1;border-radius:10px;background:var(--gray-100);display:flex;align-items:center;justify-content:center;font-size:28px">📷</div>
+         </div>`;
+
+    const actionImg = r.actionPhotoURLs && r.actionPhotoURLs[0]
+      ? `<div style="flex:1;display:flex;flex-direction:column;gap:4px">
+           <div style="font-size:11px;color:var(--green);font-weight:600;text-align:center">개선</div>
+           <img src="${r.actionPhotoURLs[0]}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px" onclick="openLightbox('${r.actionPhotoURLs[0]}')">
+         </div>`
+      : `<div style="flex:1;display:flex;flex-direction:column;gap:4px">
+           <div style="font-size:11px;color:var(--green);font-weight:600;text-align:center">개선</div>
+           <div style="aspect-ratio:1;border-radius:10px;background:var(--gray-100);display:flex;align-items:center;justify-content:center;font-size:28px">🔧</div>
+         </div>`;
+
+    return `<div class="record-card" onclick="openActionModal(${r.id})">
+      <!-- 사진 영역 나란히 -->
+      <div style="display:flex;gap:8px;padding:12px 12px 0">
+        ${problemImg}
+        ${actionImg}
+      </div>
+      <!-- 텍스트 정보 -->
+      <div class="record-body">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">
+          <span class="badge ${sevColor[r.severity] || 'badge-low'}">${sevLabel[r.severity] || '-'}</span>
+          ${statusBadge}
+        </div>
+        <div class="record-title">${r.item || '점검 항목'}</div>
+        <div class="record-meta">
+          <span>📍 ${r.location || '-'}</span>
+          ${r.dept ? `<span>🏢 ${r.dept}</span>` : ''}
+          <span>🕐 ${r.date}</span>
+        </div>
+        ${r.actionNote ? `<div style="font-size:12px;color:var(--green);margin-top:6px">🔧 ${r.actionNote}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openActionModal(id) {
+  const r = records.find(x => x.id === id);
+  if (!r) return;
+  currentActionId = id;
+  actionFiles = [];
+  actionPreviewURLs = [];
+
+  // 점검 요약 표시
+  document.getElementById('actionSummary').innerHTML =
+    `<b>📍 ${r.location || '-'}</b>${r.dept ? ` &nbsp;🏢 ${r.dept}` : ''}<br>
+     ${r.item || ''}<br>
+     ${r.note ? `<span style="color:var(--gray-400)">${r.note}</span>` : ''}`;
+
+  // 기존 조치내용 있으면 채우기
+  document.getElementById('actionNote').value = r.actionNote || '';
+
+  // 버튼 텍스트
+  document.getElementById('btnActionText').textContent =
+    r.status === 'done' ? '🔄 재조치' : '✅ 조치 완료';
+
+  renderActionPreviews();
+  document.getElementById('actionModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeActionModal(e) {
+  if (e && e.target !== document.getElementById('actionModal')) return;
+  document.getElementById('actionModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function triggerActionCamera() {
+  if (actionFiles.length >= 3) { showToast('최대 3장까지 첨부 가능합니다'); return; }
+  document.getElementById('actionFileInput').click();
+}
+
+function handleActionFiles(e) {
+  const files = Array.from(e.target.files);
+  const toAdd = files.slice(0, 3 - actionFiles.length);
+  toAdd.forEach(f => {
+    actionFiles.push(f);
+    actionPreviewURLs.push(URL.createObjectURL(f));
+  });
+  renderActionPreviews();
+  e.target.value = '';
+}
+
+function renderActionPreviews() {
+  const zone = document.getElementById('actionPhotoZone');
+  const prev = document.getElementById('actionPhotoPreviews');
+  if (!actionPreviewURLs.length) {
+    zone.style.display = 'flex'; prev.innerHTML = ''; return;
+  }
+  zone.style.display = actionFiles.length < 3 ? 'flex' : 'none';
+  prev.innerHTML = actionPreviewURLs.map(url =>
+    `<img class="photo-thumb" src="${url}" onclick="openLightbox('${url}')">`
+  ).join('');
+}
+
+async function submitAction() {
+  const note = document.getElementById('actionNote').value.trim();
+  if (!note) { showToast('개선 내용을 입력해주세요'); return; }
+
+  const btn  = document.getElementById('btnActionSubmit');
+  const text = document.getElementById('btnActionText');
+  btn.disabled = true;
+  text.innerHTML = `<div class="spinner"></div> 저장 중...`;
+
+  // 사진 압축
+  const actionPhotoURLs = await filesToBase64Array(actionFiles);
+
+  // 해당 record 업데이트
+  const idx = records.findIndex(r => r.id === currentActionId);
+  if (idx >= 0) {
+    records[idx].status = 'done';
+    records[idx].actionNote = note;
+    records[idx].actionDate = new Date().toLocaleString('ko-KR', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
+    if (actionPhotoURLs.length) records[idx].actionPhotoURLs = actionPhotoURLs;
+    await idbPut(records[idx]);
+  }
+
+  updateStats();
+  renderRecords();
+  renderActionList();
+
+  btn.disabled = false;
+  text.textContent = '✅ 조치 완료';
+  actionFiles = []; actionPreviewURLs = [];
+  document.getElementById('actionModal').classList.remove('open');
+  document.body.style.overflow = '';
+  showToast('✅ 조치가 등록됐습니다');
+}
+
+// ─── FAB 클릭 ───
+function fabClick() {
+  if (currentTab === 'layout') openBldgModal();
+  else if (currentTab === 'action') showToast('목록에서 항목을 선택하세요');
+  else openModal();
+}
+
+// ─── 건물 목록 로드 ───
+async function loadBuildings() {
+  buildings = await idbBldgGetAll();
+  renderBuildings();
+}
+
+function renderBuildings() {
+  const grid = document.getElementById('bldgGrid');
+  if (!buildings.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1" class="empty">
+      <div class="empty-icon">🏢</div>
+      <div class="empty-text">등록된 건물이 없습니다<br>+ 버튼으로 추가하세요</div>
+    </div>`;
+    return;
+  }
+  grid.innerHTML = buildings.map(b => {
+    const hasImg = b.fileType === 'image';
+    const imgHtml = hasImg
+      ? `<img class="bldg-thumb" src="${b.fileData}" alt="${b.name}">
+         <div class="bldg-overlay"></div>
+         <span class="bldg-label">${b.name}</span>`
+      : `<div class="bldg-icon-placeholder">📄</div>
+         <span class="bldg-name-plain">${b.name}</span>`;
+    return `<div class="bldg-card" onclick="openViewer(${b.id})">
+      ${imgHtml}
+      <button class="bldg-delete" onclick="event.stopPropagation();deleteBldg(${b.id})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+// ─── 건물 모달 ───
+function openBldgModal() {
+  bldgFileData = null;
+
+  // 기존 건물 드롭다운 채우기
+  const sel = document.getElementById('bldgSelect');
+  sel.innerHTML = '<option value="__new__">+ 새 건물 직접 입력</option>';
+  buildings.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b.name;
+    opt.textContent = b.name;
+    sel.appendChild(opt);
+  });
+  sel.value = '__new__';
+
+  const nameInput = document.getElementById('bldgName');
+  nameInput.style.display = 'block';
+  nameInput.value = '';
+  document.getElementById('bldgPreview').style.display = 'none';
+  document.getElementById('bldgModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function handleBldgSelect(sel) {
+  const nameInput = document.getElementById('bldgName');
+  if (sel.value === '__new__') {
+    nameInput.style.display = 'block';
+    nameInput.value = '';
+    nameInput.focus();
+  } else {
+    nameInput.style.display = 'none';
+    nameInput.value = sel.value;
+  }
+}
+
+function closeBldgModal(e) {
+  if (e && e.target !== document.getElementById('bldgModal')) return;
+  document.getElementById('bldgModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function previewBldgFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const isPDF = file.type === 'application/pdf';
+  const reader = new FileReader();
+  reader.onload = () => {
+    bldgFileData = { type: isPDF ? 'pdf' : 'image', data: reader.result };
+    if (!isPDF) {
+      const prev = document.getElementById('bldgPreview');
+      prev.src = reader.result;
+      prev.style.display = 'block';
+    } else {
+      document.getElementById('bldgPreview').style.display = 'none';
+      showToast('PDF 선택됨');
+    }
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+async function saveBldg() {
+  const sel = document.getElementById('bldgSelect');
+  const nameInput = document.getElementById('bldgName');
+  const name = sel.value === '__new__'
+    ? nameInput.value.trim()
+    : sel.value;
+
+  if (!name) { showToast('건물명을 입력해주세요'); return; }
+
+  const btn = document.querySelector('#bldgModal .btn-submit');
+  btn.disabled = true;
+  btn.textContent = '저장 중...';
+
+  try {
+    const b = {
+      id: Date.now(),
+      name,
+      fileType: bldgFileData ? bldgFileData.type : null,
+      fileData: bldgFileData ? bldgFileData.data : null,
+    };
+    await idbBldgPut(b);
+    buildings.push(b);
+    renderBuildings();
+    closeBldgModal();
+    showToast('✅ 건물이 추가됐습니다');
+  } catch(err) {
+    console.error(err);
+    showToast('❌ 저장 실패: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✅ 저장';
+  }
+}
+
+async function deleteBldg(id) {
+  if (!confirm('삭제하시겠습니까?')) return;
+  await idbBldgDelete(id);
+  buildings = buildings.filter(b => b.id !== id);
+  renderBuildings();
+}
+
+// ─── 뷰어 ───
+function openViewer(id) {
+  const b = buildings.find(x => x.id === id);
+  if (!b) return;
+  document.getElementById('viewerTitle').textContent = b.name;
+  const body = document.getElementById('viewerBody');
+  if (!b.fileData) {
+    body.innerHTML = `<div style="color:#888;font-size:15px;text-align:center">업로드된 파일이 없습니다</div>`;
+  } else if (b.fileType === 'image') {
+    body.innerHTML = `<img src="${b.fileData}" alt="${b.name}" style="max-width:100%;max-height:100%;object-fit:contain">`;
+  } else {
+    body.innerHTML = `<iframe src="${b.fileData}" style="width:100%;height:100%;border:none"></iframe>`;
+  }
+  document.getElementById('viewerOverlay').classList.add('open');
+}
+function closeViewer() {
+  document.getElementById('viewerOverlay').classList.remove('open');
+  document.getElementById('viewerBody').innerHTML = '';
+}
+
+// ─── Stats ───
+function updateStats() {
+  const total  = records.length;
+  const done   = records.filter(r => r.status === 'done').length;
+  const inProg = records.filter(r => r.status === 'inprogress').length;
+
+  document.getElementById('statInProgress').textContent = inProg;
+  document.getElementById('statDone').textContent       = done;
+  document.getElementById('ps점검').textContent         = total + ' 건';
+  document.getElementById('ps조치').textContent         = inProg + ' 건';
+  document.getElementById('ps완료').textContent         = done + ' 건';
+
+  const pct = total ? Math.round(done / total * 100) : 0;
+  document.getElementById('ringPct').textContent = pct + '%';
+  const circ = 238.76;
+  document.getElementById('ringCircle').style.strokeDashoffset = circ - (circ * pct / 100);
+}
+
+// ─── Records Render ───
+function renderRecords() {
+  const list = document.getElementById('recordList');
+  if (!records.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">📷</div><div class="empty-text">등록된 점검 기록이 없습니다<br>+ 버튼을 눌러 첫 점검을 시작하세요</div></div>`;
+    return;
+  }
+  list.innerHTML = records.slice().reverse().map((r, i) => {
+    const sev = { high:'badge-high', mid:'badge-mid', low:'badge-low' }[r.severity] || 'badge-low';
+    const sevLabel = { high:'고위험', mid:'중위험', low:'저위험' }[r.severity] || '-';
+    const imgHtml = r.photoURLs && r.photoURLs[0]
+      ? `<div class="record-img"><img src="${r.photoURLs[0]}" alt="점검 사진" onclick="openLightbox('${r.photoURLs[0]}')"></div>`
+      : `<div class="record-img">📷</div>`;
+    return `<div class="record-card">
+      ${imgHtml}
+      <div class="record-body">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span class="badge ${sev}">${sevLabel}</span>
+          <span class="badge" style="background:var(--gray-100);color:var(--gray-600)">미조치</span>
+        </div>
+        <div class="record-title">${r.item || '점검 항목'}</div>
+        <div class="record-meta">
+          <span>📍 ${r.location || '-'}</span>
+          ${r.dept ? `<span>🏢 ${r.dept}</span>` : ''}
+          <span>🕐 ${r.date}</span>
+        </div>
+        ${r.note ? `<div style="font-size:13px;color:var(--gray-600);margin-top:8px;line-height:1.5">${r.note}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── Modal ───
+let selectedLocation = '';
+let selectedDept = '';
+
+function openModal() {
+  // 건물 드롭다운
+  const sel = document.getElementById('locationSelect');
+  sel.innerHTML = '<option value="">선택하세요</option>';
+  buildings.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b.name; opt.textContent = b.name;
+    sel.appendChild(opt);
+  });
+  const other = document.createElement('option');
+  other.value = '__other__'; other.textContent = '기타 (직접 입력)';
+  sel.appendChild(other);
+  sel.value = '';
+  selectedLocation = '';
+  document.getElementById('fieldLocation').style.display = 'none';
+  document.getElementById('fieldLocation').value = '';
+
+  // 부서 드롭다운
+  const dsel = document.getElementById('deptSelect');
+  dsel.innerHTML = '<option value="">선택하세요</option>';
+  departments.forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d; opt.textContent = d;
+    dsel.appendChild(opt);
+  });
+  const dother = document.createElement('option');
+  dother.value = '__other__'; dother.textContent = '+ 새 부서 직접 입력';
+  dsel.appendChild(dother);
+  dsel.value = '';
+  selectedDept = '';
+  document.getElementById('fieldDept').style.display = 'none';
+  document.getElementById('fieldDept').value = '';
+
+  document.getElementById('modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function handleLocationSelect(sel) {
+  const locInput = document.getElementById('fieldLocation');
+  if (sel.value === '__other__') {
+    selectedLocation = '';
+    locInput.style.display = 'block';
+    locInput.focus();
+  } else {
+    selectedLocation = sel.value;
+    locInput.style.display = 'none';
+    locInput.value = '';
+  }
+}
+
+function handleDeptSelect(sel) {
+  const deptInput = document.getElementById('fieldDept');
+  if (sel.value === '__other__') {
+    selectedDept = '';
+    deptInput.style.display = 'block';
+    deptInput.focus();
+  } else {
+    selectedDept = sel.value;
+    deptInput.style.display = 'none';
+    deptInput.value = '';
+  }
+}
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modal')) return;
+  document.getElementById('modal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// ─── Severity ───
+function selectSeverity(level) {
+  selectedSeverity = level;
+  ['high','mid','low'].forEach(l => {
+    const chip = document.getElementById('chip-' + l);
+    chip.className = 'chip' + (l === level ? ' sel-' + l : '');
+  });
+}
+
+// ─── Camera / File ───
+function triggerCamera() {
+  if (selectedFiles.length >= 5) { showToast('최대 5장까지 첨부 가능합니다'); return; }
+  document.getElementById('fileInput').click();
+}
+function handleFiles(e) {
+  const files = Array.from(e.target.files);
+  const remaining = 5 - selectedFiles.length;
+  const toAdd = files.slice(0, remaining);
+  toAdd.forEach(f => {
+    selectedFiles.push(f);
+    const url = URL.createObjectURL(f);
+    previewURLs.push(url);
+  });
+  renderPreviews();
+  e.target.value = '';
+}
+function renderPreviews() {
+  const zone = document.getElementById('photoZone');
+  const prev = document.getElementById('photoPreviews');
+  if (!previewURLs.length) {
+    zone.style.display = 'flex';
+    prev.innerHTML = '';
+    return;
+  }
+  zone.style.display = previewURLs.length < 5 ? 'flex' : 'none';
+  prev.innerHTML = previewURLs.map((url, i) =>
+    `<img class="photo-thumb" src="${url}" onclick="openLightbox('${url}')">`
+  ).join('');
+}
+
+// ─── Submit ───
+async function submitInspection() {
+  const location = selectedLocation || document.getElementById('fieldLocation').value.trim();
+  const dept     = selectedDept     || document.getElementById('fieldDept').value.trim();
+  const item     = document.getElementById('fieldItem').value.trim();
+  const note     = document.getElementById('fieldNote').value.trim();
+
+  if (!location || !item) { showToast('구역과 점검 항목을 입력해주세요'); return; }
+  if (!selectedSeverity)  { showToast('위험 등급을 선택해주세요'); return; }
+
+  const btn  = document.getElementById('btnSubmit');
+  const text = document.getElementById('btnText');
+  btn.disabled = true;
+  text.innerHTML = `<div class="spinner"></div> 저장 중...`;
+
+  // 이미지 순차 압축 변환
+  const photoURLs = await filesToBase64Array(selectedFiles);
+
+  const record = {
+    id:       Date.now(),
+    location, dept, item, note,
+    severity: selectedSeverity,
+    status:   'pending',
+    overdue:  false,
+    date:     new Date().toLocaleString('ko-KR', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }),
+    photoURLs,
+  };
+
+  // 새 부서면 목록에 저장
+  if (dept) saveDept(dept);
+
+  await idbPut(record);
+  records.push(record);
+
+  updateStats();
+  renderRecords();
+
+  // Reset
+  btn.disabled = false;
+  text.innerHTML = '✅ 점검 등록';
+  selectedFiles = [];
+  previewURLs = [];
+  selectedSeverity = '';
+  selectedLocation = '';
+  selectedDept = '';
+  document.getElementById('locationSelect').value = '';
+  document.getElementById('fieldLocation').style.display = 'none';
+  document.getElementById('fieldLocation').value = '';
+  document.getElementById('deptSelect').value = '';
+  document.getElementById('fieldDept').style.display = 'none';
+  document.getElementById('fieldDept').value = '';
+  document.getElementById('fieldItem').value = '';
+  document.getElementById('fieldNote').value = '';
+  ['high','mid','low'].forEach(l => document.getElementById('chip-' + l).className = 'chip');
+  renderPreviews();
+  document.getElementById('photoZone').style.display = 'flex';
+
+  document.getElementById('modal').classList.remove('open');
+  document.body.style.overflow = '';
+  showToast('✅ 점검이 등록되었습니다');
+  switchTab('records');
+}
+
+// ─── Lightbox ───
+function openLightbox(url) {
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+
+// ─── Toast ───
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ─── Menu toggle ───
+function toggleDemoMode() {
+  showToast('로컬 모드 — 기기에 저장됩니다');
+}
+</script>
+</body>
+</html>
